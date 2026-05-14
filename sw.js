@@ -1,4 +1,4 @@
-const CACHE_NAME = 'er-chatbot-v1';
+const CACHE_NAME = 'er-chatbot-v2';
 const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
