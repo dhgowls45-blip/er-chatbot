@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="응급챗봇">
+<meta property="og:title" content="분당서울대병원 응급실 챗봇">
+<meta property="og:description" content="수가·약물·검사·업무공지 FAQ를 빠르게 확인하세요">
+<meta property="og:type" content="website">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>응급실 챗봇</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0f14; --sf:#161920; --sf2:#1e2229;
+  --bd:rgba(255,255,255,0.07); --bd2:rgba(255,255,255,0.13);
+  --ac:#4f8fff; --ac2:#7eb8ff; --glow:rgba(79,143,255,0.14);
+  --tx:#e8ecf2; --mu:#7a8499; --dm:#4a5266;
+  --bot:#1e2229; --usr:#1a2d4a; --utx:#7eb8ff;
+  --gr:#3ecf8e; --rd:#ff6b6b;
+  --fn:'Noto Sans KR',sans-serif; --mo:'DM Mono',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+
+/* ── 인앱 브라우저 전체화면 핵심 픽스 ──
+   position:fixed + visualViewport 높이 주입으로
+   카카오·밴드 주소창/하단바 침범 완전 차단 */
+html,body{width:100%;overflow:hidden}
+body{
+  font-family:var(--fn);background:var(--bg);color:var(--tx);
+  position:fixed;top:0;left:0;right:0;
+  /* JS가 실제 높이를 --vh에 주입 */
+  bottom:0;height:var(--vh,100%);
+  display:flex;flex-direction:column;
+}
+#app{display:flex;flex-direction:column;height:100%;width:100%;max-width:720px;margin:0 auto;overflow:hidden}
+
+/* 헤더 */
+#hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;
+  padding-top:max(10px,env(safe-area-inset-top));
+  background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0
+}
+.logo{width:34px;height:34px;background:var(--ac);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 0 18px rgba(79,143,255,.35);flex-shrink:0}
+.hl{display:flex;align-items:center}
+.ht{margin-left:10px}
+.ht b{font-size:15px;font-weight:700;display:block;line-height:1.25}
+.ht small{font-size:10.5px;color:var(--mu)}
+.pill{display:flex;align-items:center;gap:5px;background:rgba(62,207,142,.1);border:.5px solid rgba(62,207,142,.28);border-radius:20px;padding:4px 10px;font-size:11px;color:var(--gr);font-family:var(--mo)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--gr);animation:bl 2s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* 탭 */
+#tabs{display:flex;background:var(--sf);border-bottom:1px solid var(--bd);flex-shrink:0}
+.tab{flex:1;text-align:center;padding:10px 0;font-size:13px;font-weight:500;color:var(--mu);border-bottom:2px solid transparent;cursor:pointer;transition:.18s}
+.tab.on{color:var(--ac);border-bottom-color:var(--ac)}
+
+/* 채팅 영역 */
+#chat{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#msgs{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  padding:14px 14px 6px;
+  display:flex;flex-direction:column;gap:11px;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;min-height:0
+}
+#msgs::-webkit-scrollbar{display:none}
+
+/* 메시지 */
+.m{display:flex;flex-direction:column;animation:pp .22s ease}
+@keyframes pp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+.m.u{align-self:flex-end;align-items:flex-end;max-width:80%}
+.m.b{align-self:flex-start;align-items:flex-start;width:100%;max-width:100%}
+.bbl{padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.65;word-break:keep-all}
+.m.b .bbl{background:var(--bot);border:.5px solid var(--bd2);border-bottom-left-radius:3px;width:100%}
+.m.u .bbl{background:var(--usr);color:var(--utx);border-bottom-right-radius:3px}
+.ts{font-size:10px;color:var(--dm);margin-top:3px;padding:0 3px}
+
+/* 공지 */
+.notice{background:rgba(79,143,255,.06);border:1px solid rgba(79,143,255,.2);border-left:4px solid var(--ac);border-radius:8px;padding:9px 12px;width:100%}
+.nhd{color:var(--ac2);font-weight:700;font-size:11.5px;margin-bottom:3px}
+.nbd{font-size:13px;line-height:1.5}
+
+/* 카테고리 */
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;width:100%}
+.cbt{background:var(--sf2);border:1px solid var(--ac);color:var(--ac2);padding:13px 8px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;font-family:var(--fn);text-align:center;transition:.14s}
+.cbt:active{background:var(--glow);transform:scale(.96)}
+.cbt.f{grid-column:1/-1;border-color:var(--bd2);color:var(--mu);font-size:12px;padding:10px}
+
+/* 질문 목록 */
+.ql{display:flex;flex-direction:column;gap:7px;margin-top:10px;width:100%}
+.qbt{background:var(--sf2);border:1px solid var(--bd2);color:var(--tx);padding:11px 13px;border-radius:10px;cursor:pointer;font-weight:500;font-size:13px;font-family:var(--fn);text-align:left;line-height:1.4;transition:.14s}
+.qbt:active{background:var(--glow);border-color:var(--ac)}
+
+/* 답변 */
+.ac{background:rgba(255,255,255,.03);border:.5px solid var(--bd2);border-radius:10px;overflow:hidden;width:100%}
+.aq{padding:9px 12px;background:rgba(79,143,255,.1);color:var(--ac2);font-weight:600;font-size:13px}
+.aa{padding:11px 12px;font-size:13.5px;line-height:1.7}
+
+/* 질문 폼 */
+.qbx{padding:13px;background:var(--sf2);border-radius:12px;margin-top:8px;border:1px dashed var(--ac);width:100%}
+.qbx textarea{width:100%;background:#0a0c10;border:1px solid #2a2f3a;color:#fff;padding:9px;border-radius:8px;font-family:var(--fn);font-size:14px;resize:none}
+.cb{margin-top:8px;width:100%;padding:11px;background:var(--ac);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:var(--fn);font-size:14px}
+
+/* 빠른 버튼 */
+#quick{padding:7px 14px;border-top:1px solid var(--bd);flex-shrink:0;min-height:43px;display:flex;align-items:center}
+.hb{font-size:12px;padding:6px 15px;background:#232830;color:#fff;border:.5px solid #3d4453;border-radius:20px;cursor:pointer;font-family:var(--fn)}
+
+/* 입력바 */
+#ibar{
+  display:flex;align-items:center;gap:9px;
+  padding:9px 13px;
+  padding-bottom:max(9px,env(safe-area-inset-bottom));
+  border-top:1px solid var(--bd);background:var(--sf);flex-shrink:0
+}
+#inp{
+  flex:1;background:var(--sf2);border:.5px solid var(--bd2);
+  border-radius:22px;padding:9px 15px;color:var(--tx);
+  font-family:var(--fn);
+  font-size:16px; /* iOS 자동 확대 방지: 반드시 16px 이상 */
+  outline:none;-webkit-appearance:none
+}
+#inp::placeholder{color:var(--dm)}
+#sb{width:40px;height:40px;background:var(--ac);border:none;border-radius:50%;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:.14s}
+#sb:active{opacity:.75;transform:scale(.9)}
+
+/* FAQ 관리 */
+#mgr{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
+#mgr.on{display:flex}
+#fl{flex:1;overflow-y:auto;padding:12px;-webkit-overflow-scrolling:touch}
+#fl::-webkit-scrollbar{display:none}
+.fc{background:var(--sf2);padding:11px;border-radius:10px;margin-bottom:8px;position:relative;padding-right:34px}
+.fcc{font-size:11px;color:var(--ac2);font-family:var(--mo);margin-bottom:3px}
+.fcq{font-weight:600;font-size:13px;margin-bottom:3px}
+.fca{font-size:12px;color:var(--mu);line-height:1.5}
+.db{position:absolute;top:9px;right:8px;background:none;border:none;color:var(--rd);cursor:pointer;font-size:17px;padding:3px}
+#af{padding:12px;border-top:1.5px solid var(--bd);display:flex;flex-direction:column;gap:7px;flex-shrink:0;padding-bottom:max(12px,env(safe-area-inset-bottom))}
+#af select,#af input,#af textarea{background:var(--sf2);border:.5px solid var(--bd2);color:#fff;padding:9px 11px;border-radius:8px;font-family:var(--fn);font-size:14px;-webkit-appearance:none}
+#af textarea{resize:none}
+.ab{background:var(--ac);color:#fff;padding:10px;border:none;border-radius:8px;font-family:var(--fn);font-weight:700;font-size:14px;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="hdr">
+    <div class="hl">
+      <div class="logo">🏥</div>
+      <div class="ht"><b>응급실 챗봇</b><small>분당서울대학교병원</small></div>
+    </div>
+    <div class="pill"><div class="dot"></div>온라인</div>
+  </div>
+
+  <div id="tabs">
+    <div class="tab on" onclick="goTab('chat')">💬 채팅</div>
+    <div class="tab" onclick="goTab('mgr')">⚙️ FAQ 관리</div>
+  </div>
+
+  <div id="chat">
+    <div id="msgs"></div>
+    <div id="quick"></div>
+    <div id="ibar">
+      <input id="inp" type="text" placeholder="직접 검색..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send">
+      <button id="sb" onclick="send()">
+        <svg viewBox="0 0 24 24" width="17" fill="white"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="mgr">
+    <div id="fl"></div>
+    <div id="af">
+      <select id="nc">
+        <option value="수가">💰 수가</option>
+        <option value="약물">💊 약물</option>
+        <option value="검사">🧪 검사</option>
+        <option value="업무공지">📢 업무공지</option>
+      </select>
+      <input id="nq" type="text" placeholder="질문 입력">
+      <textarea id="na" rows="2" placeholder="답변 입력"></textarea>
+      <button class="ab" onclick="addFaq()">+ 추가하기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 설정 ── */
+const ND = "2026-05-14";
+const NT = "약물 믹스법 및 야간 안과 예약 지침 업데이트 완료!";
+const FU = "https://docs.google.com/forms/d/e/여러분의_폼_아이디/viewform";
+
+/* ════════════════════════════════
+   인앱 브라우저 높이 완벽 픽스
+   카카오톡·네이버밴드 모두 대응
+════════════════════════════════ */
+function fixVH() {
+  // visualViewport = 키보드·주소창 제외한 실제 보이는 영역
+  const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  document.body.style.height = h + 'px';
+  document.documentElement.style.setProperty('--vh', h + 'px');
+}
+fixVH();
+window.addEventListener('resize', fixVH);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fixVH);
+  window.visualViewport.addEventListener('scroll', fixVH);
+}
+
+/* ── FAQ 저장 ── */
+const DEF = {
+  "수가":[{q:"suture fee는 어떻게 넣나요?",a:"같은 부위에 여러개의 Suture시 수가는 모든 상처 크기를 합산하여 total cm로 계산해서 넣어주시면 됩니다."}],
+  "약물":[],"검사":[],"업무공지":[]
+};
+function loadFaq(){try{return JSON.parse(localStorage.getItem('er_faq'))||DEF}catch{return DEF}}
+function saveFaq(){try{localStorage.setItem('er_faq',JSON.stringify(faq))}catch{}}
+let faq = loadFaq();
+
+/* ── 메시지 ── */
+function ts(){return new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}
+function addMsg(html,r){
+  const box=document.getElementById('msgs');
+  const el=document.createElement('div');
+  el.className=`m ${r}`;
+  el.innerHTML=`<div class="bbl">${html}</div><div class="ts">${ts()}</div>`;
+  box.appendChild(el);
+  requestAnimationFrame(()=>box.scrollTop=box.scrollHeight);
+}
+
+/* ── 홈 ── */
+function home(){
+  addMsg(`<div class="notice"><div class="nhd">📢 NOTICE · ${ND}</div><div class="nbd">${NT}</div></div>`,'b');
+  setTimeout(()=>addMsg(`도움이 필요하신 분야를 선택해 주세요.
+<div class="cats">
+  <button class="cbt" onclick="pick('수가')">💰 수가</button>
+  <button class="cbt" onclick="pick('약물')">💊 약물</button>
+  <button class="cbt" onclick="pick('검사')">🧪 검사</button>
+  <button class="cbt" onclick="pick('업무공지')">📢 공지</button>
+  <button class="cbt f" onclick="showForm()">❔ 찾는 내용이 없나요?</button>
+</div>`,'b'),280);
+  document.getElementById('quick').innerHTML='';
+}
+
+/* ── 카테고리 ── */
+function pick(cat){
+  addMsg(cat,'u');
+  setTimeout(()=>{
+    const items=faq[cat]||[];
+    if(!items.length){addMsg(`<b>[${cat}]</b>에 등록된 내용이 없습니다.<br><span style="color:var(--mu);font-size:12px">FAQ 관리 탭에서 추가해 주세요.</span>`,'b');}
+    else{
+      let h=`<b>[${cat}]</b> 항목을 선택하세요.<div class="ql">`;
+      items.forEach((it,i)=>{h+=`<button class="qbt" onclick="ans('${cat}',${i})">Q. ${it.q}</button>`;});
+      addMsg(h+'</div>','b');
+    }
+    hbtn();
+  },320);
+}
+
+/* ── 답변 ── */
+function ans(cat,i){
+  const it=faq[cat][i];
+  addMsg(it.q,'u');
+  setTimeout(()=>{
+    addMsg(`<div class="ac"><div class="aq">Q. ${it.q}</div><div class="aa">${it.a}</div></div>`,'b');
+    hbtn();
+  },320);
+}
+
+/* ── 질문 폼 ── */
+function showForm(){
+  const mob=/Android|iPhone|iPad/i.test(navigator.userAgent);
+  if(mob)addMsg(`<div class="qbx" style="border-style:solid"><div style="font-weight:700;color:var(--ac2);margin-bottom:8px">🙋 관리자에게 질문하기</div><div style="font-size:12px;color:var(--mu);margin-bottom:10px">구글 폼으로 질문을 남겨주시면 빠르게 답변해 드릴게요.</div><button class="cb" onclick="window.open('${FU}')">구글 폼 작성하기</button></div>`,'b');
+  else addMsg(`<div class="qbx"><div style="font-weight:700;color:var(--ac2);margin-bottom:8px">🙋 미해결 질문 남기기</div><textarea id="uq" rows="3" placeholder="질문 내용을 입력하세요..."></textarea><button class="cb" onclick="copyQ()">질문 내용 복사하기</button></div>`,'b');
+  hbtn();
+}
+function copyQ(){
+  const v=document.getElementById('uq')?.value?.trim();
+  if(!v)return alert('내용을 입력해 주세요.');
+  navigator.clipboard.writeText(`[${new Date().toLocaleString()}] 질문: ${v}`).then(()=>alert('복사되었습니다!'));
+}
+
+/* ── 검색 ── */
+function send(){
+  const v=document.getElementById('inp').value.trim();
+  if(!v)return;
+  addMsg(v,'u');
+  document.getElementById('inp').value='';
+  document.getElementById('inp').blur();
+  setTimeout(()=>{
+    let hit=null;
+    for(const cat in faq){hit=faq[cat].find(f=>f.q.includes(v)||v.includes(f.q)||f.a.includes(v));if(hit)break;}
+    if(hit)addMsg(`<div class="ac"><div class="aq">Q. ${hit.q}</div><div class="aa">${hit.a}</div></div>`,'b');
+    else{addMsg(`"<b>${v}</b>"에 해당하는 내용을 찾지 못했습니다.`,'b');home();}
+    hbtn();
+  },380);
+}
+function hbtn(){document.getElementById('quick').innerHTML=`<button class="hb" onclick="home()">🏠 처음으로</button>`;}
+
+/* ── 탭 ── */
+function goTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',(i===0&&t==='chat')||(i===1&&t==='mgr')));
+  document.getElementById('chat').style.display=t==='chat'?'flex':'none';
+  document.getElementById('mgr').classList.toggle('on',t==='mgr');
+  if(t==='mgr')renderFaq();
+}
+
+/* ── FAQ 관리 ── */
+function renderFaq(){
+  let h='';
+  for(const cat in faq)faq[cat].forEach((f,i)=>{h+=`<div class="fc"><div class="fcc">[${cat}]</div><div class="fcq">Q. ${f.q}</div><div class="fca">A. ${f.a}</div><button class="db" onclick="delFaq('${cat}',${i})">✕</button></div>`;});
+  document.getElementById('fl').innerHTML=h||'<div style="color:var(--mu);text-align:center;padding:24px">등록된 FAQ가 없습니다.</div>';
+}
+function addFaq(){
+  const cat=document.getElementById('nc').value,q=document.getElementById('nq').value.trim(),a=document.getElementById('na').value.trim();
+  if(!q||!a)return alert('질문과 답변을 모두 입력해 주세요.');
+  faq[cat].push({q,a});saveFaq();
+  document.getElementById('nq').value='';document.getElementById('na').value='';
+  renderFaq();
+}
+function delFaq(cat,i){if(!confirm('삭제하시겠습니까?'))return;faq[cat].splice(i,1);saveFaq();renderFaq();}
+
+/* ── 키보드 ── */
+document.getElementById('inp').addEventListener('keydown',e=>{if(e.key==='Enter')send();});
+document.getElementById('inp').addEventListener('focus',()=>{
+  setTimeout(()=>{
+    fixVH();
+    const box=document.getElementById('msgs');
+    box.scrollTop=box.scrollHeight;
+  },400);
+});
+document.getElementById('inp').addEventListener('blur',()=>setTimeout(fixVH,300));
+
+/* ── PWA ── */
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+home();
+</script>
+</body>
+</html>
